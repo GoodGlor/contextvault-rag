@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ContextVault — interactive UI demo</title></head>
+<style>
+  /* ============================================================================
+     ContextVault — interactive UI demo (self-contained). Design tokens and
+     component styles ported verbatim from the app's src/index.css so this looks
+     and behaves like the real product. Dark-committed, matching color-scheme.
+     ============================================================================ */
+  :root {
+    --bg: #0b0d12;
+    --bg-2: #0f1218;
+    --surface: #151922;
+    --surface-2: #1b202b;
+    --surface-hover: #202634;
+    --border: #262c39;
+    --border-strong: #333b4d;
+    --text: #eef1f6;
+    --text-dim: #c2c8d4;
+    --muted: #8b93a4;
+    --accent: #5b8cff;
+    --accent-2: #7c5cff;
+    --accent-soft: rgba(91, 140, 255, 0.14);
+    --accent-ring: rgba(91, 140, 255, 0.45);
+    --success: #43d19e;
+    --success-soft: rgba(67, 209, 158, 0.14);
+    --warning: #f5b544;
+    --warning-soft: rgba(245, 181, 68, 0.14);
+    --danger: #ff6b6b;
+    --danger-soft: rgba(255, 107, 107, 0.13);
+    --radius: 10px;
+    --radius-sm: 7px;
+    --radius-lg: 16px;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 12px 40px -12px rgba(0, 0, 0, 0.7);
+    --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  /* Make the `hidden` attribute authoritative: an author `display` rule (e.g.
+     .app-shell{display:grid}) otherwise overrides it, so a standalone file with
+     no CSS reset would never actually hide the login. */
+  [hidden] { display: none !important; }
+  html, body { margin: 0; }
+  body {
+    font-family: var(--font);
+    color: var(--text);
+    background:
+      radial-gradient(1100px 620px at 78% -12%, rgba(124, 92, 255, 0.12), transparent 60%),
+      radial-gradient(950px 560px at 8% 4%, rgba(91, 140, 255, 0.1), transparent 55%),
+      var(--bg);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: #83a9ff; }
+  h1, h2, h3 { color: var(--text); letter-spacing: -0.01em; line-height: 1.2; text-wrap: balance; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 0.4rem; }
+  h2 { font-size: 1.15rem; font-weight: 650; margin: 0 0 0.9rem; }
+  h3 { font-size: 0.95rem; font-weight: 600; margin: 1.4rem 0 0.6rem; }
+  p { line-height: 1.6; }
+
+  button {
+    font: inherit; font-weight: 550; padding: 0.5rem 0.95rem;
+    border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    background: var(--surface-2); color: var(--text); cursor: pointer;
+    transition: background .15s ease, border-color .15s ease, transform .05s ease, box-shadow .15s ease;
+  }
+  button:hover { background: var(--surface-hover); }
+  button:active { transform: translateY(1px); }
+  button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+  button:disabled { opacity: .55; cursor: default; transform: none; }
+  button.primary {
+    border-color: transparent;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff; box-shadow: 0 6px 18px -8px rgba(91, 140, 255, 0.7);
+  }
+  button.primary:hover:not(:disabled) { filter: brightness(1.07); }
+
+  input, textarea, select {
+    font: inherit; width: 100%; padding: 0.55rem 0.7rem; margin-top: 0.3rem;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--bg-2); color: var(--text);
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  textarea { resize: vertical; min-height: 5.5rem; }
+  input:focus, textarea:focus, select:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring);
+  }
+  input::placeholder, textarea::placeholder { color: var(--muted); }
+  label { font-size: 0.82rem; font-weight: 550; color: var(--muted); }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 650;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .badge::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+  .badge.configured, .badge.status-done, .badge.verified { background: var(--success-soft); color: var(--success); }
+  .badge.status-processing, .badge.status-pending { background: var(--warning-soft); color: var(--warning); }
+  .badge.status-failed { background: var(--danger-soft); color: var(--danger); }
+  .badge.unconfigured, .badge.notset { background: var(--surface-2); color: var(--muted); }
+  .badge.kind { background: var(--accent-soft); color: var(--accent); }
+  .badge.kind::before { display: none; }
+
+  /* ---- login ---- */
+  .auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 1.5rem; }
+  .auth-card {
+    width: 100%; max-width: 400px; padding: 2.25rem; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+  }
+  .auth-brand {
+    font-weight: 800; font-size: 1.5rem; letter-spacing: -0.02em; margin-bottom: 0.1rem;
+    background: linear-gradient(135deg, var(--text), #a9b6ff);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .auth-tag { color: var(--muted); font-size: 0.9rem; margin: 0 0 1.4rem; }
+  .auth-card form { display: flex; flex-direction: column; gap: 1rem; }
+  .auth-card label { display: block; }
+  .auth-demo-note {
+    margin-top: 1.1rem; font-size: 0.78rem; color: var(--muted);
+    border-top: 1px solid var(--border); padding-top: 0.9rem;
+  }
+
+  /* ---- app shell ---- */
+  .app-shell { display: grid; grid-template-columns: 244px 1fr; min-height: 100vh; }
+  .sidebar {
+    display: flex; flex-direction: column; gap: 6px; padding: 16px 12px;
+    border-right: 1px solid var(--border); background: rgba(15, 18, 24, 0.6);
+    backdrop-filter: blur(12px); position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  }
+  .sidebar-brand {
+    font-weight: 750; font-size: 1.05rem; letter-spacing: -0.02em; padding: 6px 8px 10px;
+    background: linear-gradient(135deg, var(--text), #a9b6ff);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .repo-switch { display: block; margin-bottom: 8px; }
+  .repo-switch-caption {
+    display: block; font-size: 0.64rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 4px 2px;
+  }
+  .repo-switch select { margin-top: 0; }
+  .nav-group { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+  .nav-group-label {
+    font-size: 0.64rem; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase;
+    color: var(--muted); padding: 0 8px; margin-bottom: 4px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+    font-size: 0.9rem; font-weight: 600; color: var(--text-dim); padding: 8px 10px;
+    border-radius: var(--radius-sm); border: 0; background: transparent; cursor: pointer;
+  }
+  .nav-item:hover { background: var(--surface-hover); color: var(--text); }
+  .nav-item.active { background: var(--accent-soft); color: var(--text); }
+  .nav-ico { width: 18px; text-align: center; }
+  .sidebar-foot {
+    margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .sidebar-user { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.82rem; color: var(--muted); }
+  .sidebar-username { font-weight: 600; color: var(--text); }
+  .sidebar-role { text-transform: capitalize; color: var(--accent); }
+  .sidebar-foot select { font-size: 0.8rem; padding: 0.2rem 0.4rem; }
+  .app-main { padding: 24px 28px; min-width: 0; }
+
+  .view { display: none; animation: fade .18s ease; }
+  .view.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .lede { color: var(--muted); max-width: 640px; margin: 0 0 1.3rem; }
+
+  /* ---- cards / list rows ---- */
+  .card {
+    padding: 1.4rem 1.5rem; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); box-shadow: var(--shadow);
+  }
+  .stack { display: flex; flex-direction: column; gap: 0.9rem; }
+  .row-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.7rem; }
+  .row-card {
+    padding: 1rem 1.2rem; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); box-shadow: var(--shadow); transition: border-color .15s ease;
+  }
+  .row-card:hover { border-color: var(--border-strong); }
+  .row-head { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+  .row-title { font-weight: 650; color: var(--text); }
+  .row-meta { color: var(--muted); font-size: 0.85rem; }
+  .push { margin-left: auto; }
+  .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .form { display: flex; flex-direction: column; gap: 0.45rem; max-width: 520px; }
+  .form label + input, .form label + textarea, .form label + select { margin-top: 0.1rem; }
+
+  /* ---- ask / chat ---- */
+  .chat { display: flex; flex-direction: column; height: calc(100vh - 8rem); min-height: 26rem; }
+  .chat-header {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+    flex-wrap: wrap; padding-bottom: 0.85rem; border-bottom: 1px solid var(--border);
+  }
+  .chat-header h1 { margin: 0; }
+  .chat-repo { font-size: 0.85rem; color: var(--muted); }
+  .chat-repo b { color: var(--text-dim); }
+  .chat-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem 0.25rem; }
+  .turn { display: flex; flex-direction: column; gap: 0.6rem; }
+  .msg-row { display: flex; }
+  .msg-row.user { justify-content: flex-end; }
+  .bubble { max-width: min(80%, 46rem); padding: 0.8rem 1rem; border-radius: var(--radius-lg); box-shadow: var(--shadow); line-height: 1.6; }
+  .msg-row.user .bubble { background: var(--accent); color: #fff; border-bottom-right-radius: var(--radius-sm); white-space: pre-wrap; }
+  .msg-row.assistant .bubble { background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); border-bottom-left-radius: var(--radius-sm); }
+  .bubble.thinking { color: var(--muted); font-style: italic; }
+  .cited-sources { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.2rem; padding-left: 0.2rem; }
+  .source-chip {
+    display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; color: var(--text-dim);
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.6rem;
+  }
+  .source-chip .n {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 1.1rem; height: 1.1rem;
+    font-size: 0.68rem; font-weight: 700; border-radius: 999px; background: var(--accent-soft); color: var(--accent);
+  }
+  .citation-chip {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 1.25rem; height: 1.25rem;
+    padding: 0 0.35rem; margin: 0 0.15rem; font-size: 0.72rem; font-weight: 600; line-height: 1;
+    border-radius: 999px; background: var(--accent-soft); color: var(--accent); vertical-align: super; cursor: pointer;
+    transition: background .15s ease;
+  }
+  .citation-chip:hover { background: var(--accent); color: #fff; }
+  .chat-composer { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.85rem; border-top: 1px solid var(--border); }
+  .composer-row { display: flex; align-items: flex-end; gap: 0.6rem; }
+  .composer-row textarea { flex: 1; min-height: 2.6rem; max-height: 12rem; margin: 0; }
+  .composer-row button { flex-shrink: 0; }
+
+  /* ---- reports ---- */
+  .report-item { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+  .muted-note { color: var(--muted); font-size: 0.85rem; margin: 0.4rem 0 0; }
+
+  /* ---- data / sources ---- */
+  .tabbar { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 0 0 1.2rem; }
+  .tab { border: 0; background: transparent; color: var(--muted); font-weight: 650; padding: 9px 14px; border-bottom: 2px solid transparent; border-radius: 0; }
+  .tab:hover { color: var(--text-dim); background: transparent; }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tabpanel { display: none; }
+  .tabpanel.active { display: block; }
+  .source-item { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+  .source-title { font-weight: 600; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  /* ---- providers ---- */
+  .provider-item { display: flex; flex-direction: column; gap: 0.55rem; }
+  .provider-head { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+  .provider-name { font-weight: 650; }
+  .notice { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.85rem; }
+
+  /* ---- insights: knowledge gaps (the fixed layout) ---- */
+  .gap-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.7rem; }
+  .gap-item {
+    display: flex; flex-direction: column; align-items: stretch; gap: 0.4rem;
+    padding: 1rem 1.2rem; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); box-shadow: var(--shadow); transition: border-color .15s ease;
+  }
+  .gap-item:hover { border-color: var(--border-strong); }
+  .gap-question { font-weight: 650; font-size: 1rem; color: var(--text); }
+  .gap-signal { color: var(--muted); font-size: 0.85rem; }
+  .gap-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.5rem; margin-top: 0.3rem; }
+  .rejected-gap-list { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+  .rejected-gap-list li {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.6rem;
+    padding: 0.7rem 0.9rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
+  }
+  .gap-reason { color: var(--text-dim); font-size: 0.85rem; }
+  .rejected-gap-list .gap-signal { margin-left: auto; }
+
+  /* ---- insights: analytics ---- */
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.9rem; margin: 0.5rem 0 1.4rem; }
+  .stat {
+    display: flex; flex-direction: column; gap: 0.25rem; padding: 1.1rem 1.25rem;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: linear-gradient(160deg, var(--surface-2), var(--surface)); box-shadow: var(--shadow);
+  }
+  .stat-value { font-size: 1.7rem; font-weight: 700; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+  .stat-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  .analytics-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .analytics-table th {
+    text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--muted); font-weight: 600; padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--border);
+  }
+  .analytics-table td { padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--border); color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .analytics-table tr:last-child td { border-bottom: none; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+  .top-questions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.7rem; }
+  .top-questions li {
+    display: flex; justify-content: space-between; gap: 1rem; padding: 0.6rem 0.85rem;
+    border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-size: 0.9rem;
+  }
+  .q-count { color: var(--accent); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .section { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); padding: 1.4rem 1.5rem; margin-bottom: 1.5rem; }
+
+  /* toast */
+  .toast {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--surface-2); border: 1px solid var(--border-strong); color: var(--text);
+    padding: 0.6rem 1rem; border-radius: var(--radius); box-shadow: var(--shadow-lg);
+    font-size: 0.88rem; opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; z-index: 50;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .spin { display: inline-block; width: 0.9rem; height: 0.9rem; border: 2px solid var(--muted); border-top-color: transparent; border-radius: 999px; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } .view { animation: none; } }
+
+  .nav-toggle { display: none; }
+  @media (max-width: 860px) {
+    .app-shell { grid-template-columns: 1fr; }
+    .sidebar { position: fixed; z-index: 25; width: 244px; transform: translateX(-100%); transition: transform .2s ease; }
+    .app-shell[data-nav-open="true"] .sidebar { transform: translateX(0); }
+    .app-main { padding: 62px 18px 24px; }
+    .nav-toggle {
+      display: inline-flex; position: fixed; top: 12px; left: 12px; z-index: 30; width: 40px; height: 40px;
+      align-items: center; justify-content: center;
+    }
+  }
+</style>
+
+<!-- ============================ LOGIN ============================ -->
+<div class="auth-wrap" id="login">
+  <div class="auth-card">
+    <div class="auth-brand">ContextVault</div>
+    <p class="auth-tag">Sign in to your knowledge workspace</p>
+    <form id="login-form">
+      <label>Username
+        <input type="text" value="admin" autocomplete="off" />
+      </label>
+      <label>Password
+        <input type="password" value="demo-password" autocomplete="off" />
+      </label>
+      <button type="submit" class="primary">Sign in</button>
+    </form>
+    <p class="auth-demo-note">This is a static demo — no real account, nothing is sent anywhere. Click <b>Sign in</b> to explore the app.</p>
+  </div>
+</div>
+
+<!-- ============================ APP ============================ -->
+<div class="app-shell" id="app" data-nav-open="false" hidden>
+  <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation">☰</button>
+  <aside class="sidebar">
+    <div class="sidebar-brand">ContextVault</div>
+
+    <label class="repo-switch">
+      <span class="repo-switch-caption">Repository</span>
+      <select id="repo-select">
+        <option>HR Policies</option>
+        <option>NGU Payments</option>
+        <option>Finance FAQ</option>
+      </select>
+    </label>
+
+    <nav>
+      <div class="nav-group">
+        <span class="nav-group-label">Workspace</span>
+        <button class="nav-item active" data-view="ask"><span class="nav-ico">💬</span> Ask</button>
+        <button class="nav-item" data-view="reports"><span class="nav-ico">📊</span> Reports</button>
+      </div>
+      <div class="nav-group">
+        <span class="nav-group-label">Manage this repo</span>
+        <button class="nav-item" data-view="data"><span class="nav-ico">🧠</span> Data</button>
+        <button class="nav-item" data-view="providers"><span class="nav-ico">🔌</span> Providers</button>
+        <button class="nav-item" data-view="insights"><span class="nav-ico">📈</span> Insights</button>
+      </div>
+      <div class="nav-group">
+        <span class="nav-group-label">Admin</span>
+        <button class="nav-item" data-view="repos"><span class="nav-ico">📁</span> Repositories</button>
+        <button class="nav-item" data-view="users"><span class="nav-ico">👥</span> Users</button>
+      </div>
+    </nav>
+
+    <div class="sidebar-foot">
+      <select aria-label="Language" style="max-width:120px">
+        <option>English</option>
+        <option>Українська</option>
+      </select>
+      <div class="sidebar-user">
+        <span class="sidebar-username">admin</span>
+        <span class="sidebar-role">admin</span>
+        <button id="logout" style="margin-left:auto; padding:0.3rem 0.6rem; font-size:0.8rem">Log out</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="app-main">
+
+    <!-- ===== ASK ===== -->
+    <section class="view active" data-view="ask" id="view-ask">
+      <div class="chat">
+        <div class="chat-header">
+          <h1>Ask a repository</h1>
+          <span class="chat-repo">Answering from <b id="ask-repo">HR Policies</b></span>
+        </div>
+        <div class="chat-log" id="chat-log">
+          <div class="turn">
+            <div class="msg-row user"><div class="bubble">How many days of annual leave do full-time staff get?</div></div>
+            <div class="msg-row assistant">
+              <div class="bubble">
+                Full-time employees are entitled to <b>24 calendar days</b> of paid annual leave per year<span class="citation-chip">1</span>.
+                Part-time staff receive it pro-rated to their contracted hours<span class="citation-chip">2</span>, and unused
+                days may be carried over for up to three months into the next year<span class="citation-chip">1</span>.
+              </div>
+            </div>
+            <div class="cited-sources">
+              <span class="source-chip"><span class="n">1</span> Leave Policy.pdf</span>
+              <span class="source-chip"><span class="n">2</span> HR Handbook — §4 Working time</span>
+            </div>
+          </div>
+        </div>
+        <form class="chat-composer" id="ask-form">
+          <div class="composer-row">
+            <textarea id="ask-input" rows="1" placeholder="Message this repository…"></textarea>
+            <button type="submit" class="primary">Send</button>
+          </div>
+          <p class="form-hint">Answers are grounded only in this repository's sources and cite them by number. If nothing matches, it says so honestly.</p>
+        </form>
+      </div>
+    </section>
+
+    <!-- ===== REPORTS ===== -->
+    <section class="view" data-view="reports" id="view-reports">
+      <h1>Reports</h1>
+      <p class="lede">Describe a report in plain language. ContextVault plans it into sections and answers each from whichever source fits — the connected database or the ingested documents — then compiles one PDF.</p>
+
+      <form class="form" id="report-form" style="max-width:640px">
+        <label for="report-prompt">Prompt</label>
+        <textarea id="report-prompt" placeholder="Describe the report you want, e.g. &quot;Q1 leave usage with policy context&quot;…"></textarea>
+        <p class="form-hint">The report draws on this repository's documents and, if connected, its reporting database.</p>
+        <button type="submit" class="primary" style="align-self:flex-start; margin-top:0.4rem">Generate report</button>
+      </form>
+
+      <h3>Recent reports</h3>
+      <ul class="row-list" id="report-list">
+        <li class="row-card report-item">
+          <span class="row-title">Q1 overview: leave usage + policy context</span>
+          <span class="badge status-done">Done</span>
+          <span class="row-meta">2 sections · database + documents</span>
+          <button class="push">Download PDF</button>
+        </li>
+        <li class="row-card report-item">
+          <span class="row-title">Headcount by department, last 30 days</span>
+          <span class="badge status-processing"><span class="spin"></span>Processing</span>
+          <span class="row-meta push">planning sections…</span>
+        </li>
+      </ul>
+
+      <h3>Nightly schedules</h3>
+      <p class="muted-note">No nightly schedules yet.</p>
+    </section>
+
+    <!-- ===== DATA ===== -->
+    <section class="view" data-view="data" id="view-data">
+      <h1>Data</h1>
+      <div class="tabbar">
+        <button class="tab active" data-tab="documents">Documents &amp; web</button>
+        <button class="tab" data-tab="database">Database</button>
+      </div>
+
+      <div class="tabpanel active" data-tab="documents">
+        <div class="grid-2" style="margin-bottom:1.3rem">
+          <form class="form card" style="max-width:none">
+            <label>Documents</label>
+            <input type="file" />
+            <p class="form-hint">Select one or more files. Images are read with OCR — only text visible in the image is captured.</p>
+            <button type="button" class="primary" style="align-self:flex-start">Upload</button>
+          </form>
+          <form class="form card" style="max-width:none">
+            <label>Web link</label>
+            <input type="url" placeholder="https://example.com/article" />
+            <p class="form-hint">Fetch a single page and add it as a source.</p>
+            <button type="button" style="align-self:flex-start">Add link</button>
+          </form>
+        </div>
+
+        <ul class="row-list">
+          <li class="row-card source-item">
+            <span class="badge kind">document</span><span class="source-title">Leave Policy.pdf</span>
+            <span class="badge status-done push">Completed</span><button>Delete</button>
+          </li>
+          <li class="row-card source-item">
+            <span class="badge kind">document</span><span class="source-title">HR Handbook.docx</span>
+            <span class="badge status-done push">Completed</span><button>Delete</button>
+          </li>
+          <li class="row-card source-item">
+            <span class="badge kind">web</span><a class="source-title" href="#" onclick="return false">intranet/travel-reimbursement</a>
+            <span class="badge status-processing push"><span class="spin"></span>Processing</span><button>Delete</button>
+          </li>
+          <li class="row-card source-item">
+            <span class="badge kind">image</span><span class="source-title">payslip-sample.png</span>
+            <span class="badge status-done push">Completed</span><button>Delete</button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="tabpanel" data-tab="database">
+        <div class="card stack">
+          <div class="row-head">
+            <span class="row-title">PostgreSQL — hr_analytics</span>
+            <span class="badge configured">Connected · read-only</span>
+          </div>
+          <p class="row-meta" style="margin:0">reports.company.internal:5432 · credentials encrypted at rest</p>
+          <div>
+            <label>Allow-listed tables</label>
+            <div class="btn-row" style="margin-top:0.5rem">
+              <span class="badge kind">leave_requests</span>
+              <span class="badge kind">employees</span>
+              <span class="badge kind">departments</span>
+              <span class="badge kind">payments</span>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button>Test connection</button>
+            <button>Edit allow-list</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== PROVIDERS ===== -->
+    <section class="view" data-view="providers" id="view-providers">
+      <h1>Providers</h1>
+      <p class="lede">Enter one API key per provider. Each key is checked when you save, then shared by every repository that uses it.</p>
+      <ul class="row-list">
+        <li class="row-card provider-item">
+          <div class="provider-head"><span class="provider-name">Anthropic</span><span class="badge verified">Verified</span></div>
+          <div class="form" style="max-width:none">
+            <label>API key</label>
+            <input type="password" placeholder="Enter a new key to replace the current one" />
+          </div>
+          <div class="btn-row"><button class="primary">Save key</button><button>Remove key</button></div>
+        </li>
+        <li class="row-card provider-item">
+          <div class="provider-head"><span class="provider-name">Google (Gemini)</span><span class="badge verified">Verified</span></div>
+          <p class="notice">Embeddings for every repository are generated by Gemini.</p>
+          <div class="btn-row"><button class="primary">Save key</button><button>Remove key</button></div>
+        </li>
+        <li class="row-card provider-item">
+          <div class="provider-head"><span class="provider-name">OpenAI</span><span class="badge notset">Not set</span></div>
+          <div class="form" style="max-width:none"><label>API key</label><input type="password" /></div>
+          <div class="btn-row"><button class="primary">Save key</button></div>
+        </li>
+        <li class="row-card provider-item">
+          <div class="provider-head"><span class="provider-name">Custom (local / self-hosted)</span><span class="badge notset">Not set</span></div>
+          <div class="form" style="max-width:none">
+            <label>Base URL</label>
+            <input type="url" placeholder="http://localhost:11434/v1" />
+            <p class="notice">Chat, reports, and image reading run on your server. Document embedding still uses Gemini in this version.</p>
+            <label>API key (optional)</label>
+            <input type="password" />
+          </div>
+          <div class="btn-row"><button class="primary">Save key</button></div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ===== INSIGHTS ===== -->
+    <section class="view" data-view="insights" id="view-insights">
+      <h1>Insights</h1>
+
+      <div class="section">
+        <h2>Knowledge gaps</h2>
+        <ul class="gap-list">
+          <li class="gap-item">
+            <span class="gap-question">Does a business trip affect my leave balance?</span>
+            <span class="gap-signal">asked 4× · 1 user · last 23 Jul 2026</span>
+            <div class="gap-actions">
+              <button class="primary">Answer this gap</button>
+              <button>Reject</button>
+            </div>
+          </li>
+          <li class="gap-item">
+            <span class="gap-question">Who is eligible for the 10 000 UAH one-off payment?</span>
+            <span class="gap-signal">asked 2× · 2 users · last 23 Jul 2026</span>
+            <div class="gap-actions">
+              <button class="primary">Answer this gap</button>
+              <button>Reject</button>
+            </div>
+          </li>
+        </ul>
+
+        <h3>Rejected gaps</h3>
+        <ul class="rejected-gap-list">
+          <li>
+            <span class="gap-question">What's the weather in Kyiv?</span>
+            <span class="gap-reason">Out of scope for this vault</span>
+            <span class="gap-signal">rejected by admin · 24 Jul 2026</span>
+          </li>
+          <li>
+            <span class="gap-question">Which document do you have?</span>
+            <span class="gap-reason">Already covered in the database</span>
+            <span class="gap-signal">rejected by admin · 24 Jul 2026</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>Analytics</h2>
+        <div class="stat-row">
+          <div class="stat"><span class="stat-value">1,284</span><span class="stat-label">Total queries</span></div>
+          <div class="stat"><span class="stat-value">1,097</span><span class="stat-label">Answered</span></div>
+          <div class="stat"><span class="stat-value">187</span><span class="stat-label">Not in vault</span></div>
+          <div class="stat"><span class="stat-value">15%</span><span class="stat-label">Gap rate</span></div>
+        </div>
+
+        <h3>Per repository</h3>
+        <div class="table-wrap">
+          <table class="analytics-table">
+            <thead><tr><th>Repository</th><th>Queries</th><th>Gaps</th></tr></thead>
+            <tbody>
+              <tr><td>HR Policies</td><td>742</td><td>96</td></tr>
+              <tr><td>NGU Payments</td><td>398</td><td>71</td></tr>
+              <tr><td>Finance FAQ</td><td>144</td><td>20</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Top questions</h3>
+        <ul class="top-questions">
+          <li><span>How many days of annual leave do full-time staff get?</span><span class="q-count">58×</span></li>
+          <li><span>How do I claim travel reimbursement?</span><span class="q-count">41×</span></li>
+          <li><span>When is payroll processed each month?</span><span class="q-count">33×</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== REPOSITORIES ===== -->
+    <section class="view" data-view="repos" id="view-repos">
+      <h1>Repositories</h1>
+      <form class="card form" style="max-width:640px; margin-bottom:1.4rem">
+        <h2 style="margin:0 0 0.4rem">New repository</h2>
+        <label>Repository name</label>
+        <input type="text" placeholder="e.g. Onboarding Guide" />
+        <label>Description</label>
+        <input type="text" />
+        <button type="button" class="primary" style="align-self:flex-start; margin-top:0.4rem">Create repository</button>
+      </form>
+
+      <ul class="row-list">
+        <li class="row-card">
+          <div class="row-head">
+            <span class="row-title">HR Policies</span>
+            <span class="row-meta">Anthropic · claude-sonnet-5</span>
+            <span class="badge configured">Configured</span>
+            <span class="btn-row push"><button>Configure</button><button>Rename</button><button>Delete</button></span>
+          </div>
+        </li>
+        <li class="row-card">
+          <div class="row-head">
+            <span class="row-title">NGU Payments</span>
+            <span class="row-meta">Google (Gemini) · gemini-2.5-pro</span>
+            <span class="badge configured">Configured</span>
+            <span class="btn-row push"><button>Configure</button><button>Rename</button><button>Delete</button></span>
+          </div>
+        </li>
+        <li class="row-card">
+          <div class="row-head">
+            <span class="row-title">Onboarding Guide</span>
+            <span class="badge unconfigured">Not configured</span>
+            <span class="btn-row push"><button>Configure</button><button>Rename</button><button>Delete</button></span>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ===== USERS ===== -->
+    <section class="view" data-view="users" id="view-users">
+      <h1>Users &amp; access</h1>
+
+      <div class="section">
+        <h2>Invite a user</h2>
+        <div class="form">
+          <label>Username</label>
+          <input type="text" placeholder="new.teammate" />
+          <label>Role</label>
+          <select><option>User</option><option>Admin</option></select>
+          <button type="button" class="primary" style="align-self:flex-start; margin-top:0.4rem">Send invite</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Accounts</h2>
+        <ul class="row-list">
+          <li class="row-card"><div class="row-head"><span class="row-title">admin</span><span class="badge verified" style="background:var(--accent-soft);color:var(--accent)">Admin</span><span class="btn-row push"><button>Reset password</button><button>Delete</button></span></div></li>
+          <li class="row-card"><div class="row-head"><span class="row-title">o.kovalenko</span><span class="badge notset">User</span><span class="btn-row push"><button>Reset password</button><button>Delete</button></span></div></li>
+          <li class="row-card"><div class="row-head"><span class="row-title">i.melnyk</span><span class="badge notset">User</span><span class="btn-row push"><button>Reset password</button><button>Delete</button></span></div></li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>Repository access</h2>
+        <div class="form" style="max-width:none">
+          <div class="grid-2" style="max-width:640px">
+            <label>Repository<select><option>HR Policies</option><option>NGU Payments</option><option>Finance FAQ</option></select></label>
+            <label>Grant to<select><option>o.kovalenko</option><option>i.melnyk</option></select></label>
+          </div>
+          <button type="button" class="primary" style="align-self:flex-start; margin-top:0.6rem">Grant access</button>
+        </div>
+        <ul class="row-list" style="margin-top:1rem">
+          <li class="row-card"><div class="row-head"><span class="row-title">o.kovalenko</span><span class="row-meta">HR Policies · no expiry</span><button class="push">Revoke</button></div></li>
+          <li class="row-card"><div class="row-head"><span class="row-title">i.melnyk</span><span class="row-meta">NGU Payments · until 31 Dec 2026</span><button class="push">Revoke</button></div></li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  (function () {
+    var login = document.getElementById("login");
+    var app = document.getElementById("app");
+    var toast = document.getElementById("toast");
+    var toastTimer;
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { toast.classList.remove("show"); }, 2200);
+    }
+
+    // Login → app
+    document.getElementById("login-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      login.hidden = true;
+      app.hidden = false;
+      window.scrollTo(0, 0);
+    });
+    document.getElementById("logout").addEventListener("click", function () {
+      app.hidden = true;
+      login.hidden = false;
+    });
+
+    // Sidebar nav → view switching
+    var navItems = Array.prototype.slice.call(document.querySelectorAll(".nav-item"));
+    var views = Array.prototype.slice.call(document.querySelectorAll(".view"));
+    navItems.forEach(function (item) {
+      item.addEventListener("click", function () {
+        var target = item.getAttribute("data-view");
+        navItems.forEach(function (n) { n.classList.toggle("active", n === item); });
+        views.forEach(function (v) { v.classList.toggle("active", v.getAttribute("data-view") === target); });
+        app.setAttribute("data-nav-open", "false");
+        var main = document.querySelector(".app-main");
+        if (main) main.scrollTop = 0;
+      });
+    });
+
+    // Mobile nav toggle
+    document.getElementById("nav-toggle").addEventListener("click", function () {
+      app.setAttribute("data-nav-open", app.getAttribute("data-nav-open") === "true" ? "false" : "true");
+    });
+
+    // Repo switcher reflected in the Ask header
+    var repoSelect = document.getElementById("repo-select");
+    repoSelect.addEventListener("change", function () {
+      document.getElementById("ask-repo").textContent = repoSelect.value;
+      showToast("Switched to " + repoSelect.value);
+    });
+
+    // Data tabs
+    Array.prototype.slice.call(document.querySelectorAll(".tab")).forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        var name = tab.getAttribute("data-tab");
+        document.querySelectorAll(".tab").forEach(function (t) { t.classList.toggle("active", t === tab); });
+        document.querySelectorAll(".tabpanel").forEach(function (p) {
+          p.classList.toggle("active", p.getAttribute("data-tab") === name);
+        });
+      });
+    });
+
+    // Ask composer → append a canned grounded answer
+    var askForm = document.getElementById("ask-form");
+    var askInput = document.getElementById("ask-input");
+    var chatLog = document.getElementById("chat-log");
+    var ANSWERS = [
+      {
+        text: 'Travel is reimbursed against itemised receipts submitted within 30 days of the trip<span class="citation-chip">1</span>. Economy fares and standard lodging are covered; upgrades need prior approval<span class="citation-chip">2</span>.',
+        sources: [["1", "Travel &amp; Expenses.pdf"], ["2", "HR Handbook — §7 Expenses"]]
+      },
+      {
+        text: 'That isn\'t covered by this repository\'s sources, so I can\'t answer it from the vault. It has been logged as a knowledge gap for an admin to close.',
+        notInVault: true
+      }
+    ];
+    var answerIdx = 0;
+
+    askForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var q = askInput.value.trim();
+      if (!q) return;
+      askInput.value = "";
+
+      var turn = document.createElement("div");
+      turn.className = "turn";
+      var userRow = document.createElement("div");
+      userRow.className = "msg-row user";
+      var userBubble = document.createElement("div");
+      userBubble.className = "bubble";
+      userBubble.textContent = q;
+      userRow.appendChild(userBubble);
+      turn.appendChild(userRow);
+
+      var thinkRow = document.createElement("div");
+      thinkRow.className = "msg-row assistant";
+      thinkRow.innerHTML = '<div class="bubble thinking">Thinking…</div>';
+      turn.appendChild(thinkRow);
+
+      chatLog.appendChild(turn);
+      chatLog.scrollTop = chatLog.scrollHeight;
+
+      var ans = ANSWERS[answerIdx % ANSWERS.length];
+      answerIdx++;
+      setTimeout(function () {
+        turn.removeChild(thinkRow);
+        var row = document.createElement("div");
+        row.className = "msg-row assistant";
+        row.innerHTML = '<div class="bubble">' + ans.text + "</div>";
+        turn.appendChild(row);
+        if (ans.sources) {
+          var cs = document.createElement("div");
+          cs.className = "cited-sources";
+          cs.innerHTML = ans.sources.map(function (s) {
+            return '<span class="source-chip"><span class="n">' + s[0] + "</span> " + s[1] + "</span>";
+          }).join("");
+          turn.appendChild(cs);
+        }
+        chatLog.scrollTop = chatLog.scrollHeight;
+      }, 750);
+    });
+
+    // Reports → generate a row that flips Processing → Done
+    var reportForm = document.getElementById("report-form");
+    var reportList = document.getElementById("report-list");
+    reportForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var prompt = document.getElementById("report-prompt").value.trim() || "Untitled report";
+      document.getElementById("report-prompt").value = "";
+      var li = document.createElement("li");
+      li.className = "row-card report-item";
+      li.innerHTML =
+        '<span class="row-title"></span>' +
+        '<span class="badge status-processing"><span class="spin"></span>Processing</span>' +
+        '<span class="row-meta push">planning sections…</span>';
+      li.querySelector(".row-title").textContent = prompt;
+      reportList.insertBefore(li, reportList.firstChild);
+      showToast("Report requested — generating in the background");
+      setTimeout(function () {
+        li.innerHTML =
+          '<span class="row-title"></span>' +
+          '<span class="badge status-done">Done</span>' +
+          '<span class="row-meta">3 sections · database + documents</span>' +
+          '<button class="push">Download PDF</button>';
+        li.querySelector(".row-title").textContent = prompt;
+      }, 1800);
+    });
+
+    // Generic "no real backend" hint for demo action buttons
+    document.addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b) return;
+      if (b.classList.contains("nav-item") || b.classList.contains("tab") || b.id === "nav-toggle") return;
+      if (b.id === "logout" || b.type === "submit") return;
+      var label = (b.textContent || "").trim();
+      if (label && label.length < 30) showToast("Demo — “" + label + "” isn't wired to a backend");
+    });
+  })();
+</script>

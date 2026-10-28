@@ -1,0 +1,35 @@
+# Keep the build context small and the image clean. Anything needed at runtime
+# is COPYed explicitly in the Dockerfile, so excluding broadly is safe.
+
+.git/
+.github/
+.idea/
+.vscode/
+.claude/
+
+# Secrets must never reach the image — Heroku supplies these as config vars.
+.env
+
+# Rebuilt inside the image / irrelevant to it.
+.venv/
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/test-results/
+frontend/e2e/
+frontend/playwright.config.ts
+tests/
+docs/
+migrations/versions/__pycache__/
+
+__pycache__/
+*.py[cod]
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.tsbuildinfo
+
+.DS_Store
+docker-compose.yml
+contextvault-demo.html

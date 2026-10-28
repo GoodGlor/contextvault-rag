@@ -1,0 +1,21 @@
+# Heroku container-stack manifest.
+#
+# `git push heroku main` builds the Dockerfile on Heroku, runs the release phase,
+# then swaps the dyno. The release command applies migrations *before* the new
+# code serves traffic, and a failed migration aborts the release rather than
+# leaving a running dyno pointed at an unmigrated database.
+#
+# `alembic` and `uvicorn` resolve without a prefix because the Dockerfile puts
+# /app/.venv/bin on PATH.
+
+build:
+  docker:
+    web: Dockerfile
+
+release:
+  image: web
+  command:
+    - alembic upgrade head
+
+run:
+  web: uvicorn contextvault.main:app --host 0.0.0.0 --port $PORT

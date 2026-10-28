@@ -1,0 +1,88 @@
+<!doctype html><html lang="uk"><head><meta charset="utf-8"><title>Звіт</title><style>
+@page {
+    size: A4;
+    margin: 18.0mm 16.0mm;
+    background: #f7f8fa;
+}
+
+html {
+    font-family: "Report Sans";
+    font-size: 10.0pt;
+    line-height: 1.55;
+    color: #10151e;
+}
+body { margin: 0; }
+
+/* No `text-wrap: balance`: WeasyPrint does not implement it and logs an
+   "unknown property" warning on every single render.
+   `string-set` publishes the title to the running header — set on the element
+   rather than passed in twice, so the header cannot disagree with the cover. */
+h1 {
+    font-family: "Report Sans"; font-size: 24.0pt;
+    margin: 0 0 6mm 0; string-set: doctitle content();
+}
+h2 {
+    font-family: "Report Sans"; font-size: 13.0pt;
+    margin: 0 0 3mm 0; break-after: avoid;
+}
+section { margin-bottom: 8.0mm; }
+
+/* The cover is a page, not a heading: it ends with a break, so section one
+   always opens the second sheet however short the title is. */
+.cover { break-after: page; padding-top: 34mm; }
+.cover .eyebrow {
+    font-size: 8.0pt; letter-spacing: .12em; text-transform: uppercase;
+    color: #1a4a75; margin: 0;
+}
+.cover h1 { font-size: 32.4pt; margin: 3mm 0 0 0; }
+.cover .rule { height: 2pt; width: 34%; background: #1a4a75; margin: 6mm 0; }
+.cover .meta { color: #3d4759; margin: 0; }
+
+/* A wide table gets the sheet turned rather than its headings broken mid-word.
+   The named page does nothing on its own — `section.landscape` is what claims
+   it, and a section only wears that class once it has enough columns to need it.
+   The break returns the next section to portrait: without it, whatever follows
+   is set on the turned sheet, and a paragraph at landscape measure is a 27 cm
+   line. Checked: it adds no trailing blank page when the wide section is last. */
+@page landscape { size: A4 landscape; }
+section.landscape { page: landscape; break-after: page; }
+p { margin: 0 0 3mm 0; orphans: 2; widows: 2; }
+.note { font-size: 8.0pt; color: #7b8698; }
+.sources { font-size: 9.0pt; color: #3d4759; }
+.stats { margin: 0 0 3mm 0; font-family: "Report Mono"; }
+.stats span { margin-right: 6mm; white-space: nowrap; }
+
+figure { margin: 0 0 4mm 0; break-inside: avoid; }
+figure img { width: 100%; height: auto; }
+
+table {
+    width: 100%; border-collapse: collapse; font-size: 8.0pt;
+    /* The default `auto` layout does not shrink a wide table: it lets the last
+       columns run off the page edge and cuts them there, with no warning. */
+    table-layout: fixed;
+}
+thead { display: table-header-group; }   /* the header repeats on every page */
+/* A row split across a page boundary loses half its cells, and the continuation
+   page opens with blanks that read as missing data. */
+tr { break-inside: avoid; }
+th, td {
+    padding: 1.4mm 1.6mm; border: .4pt solid #d7dde6;
+    text-align: left; overflow-wrap: anywhere;
+}
+th { background: #eef1f5; font-weight: 700; color: #10151e; }
+td.num {
+    text-align: right; font-family: "Report Mono";
+    font-variant-numeric: tabular-nums;
+}
+/* A pulled-out conclusion. `break-inside: avoid` because a callout split across
+   a page boundary reads as two unrelated remarks. */
+.callout {
+    background: #eef1f5; border-left: 3pt solid #1a4a75;
+    padding: 3mm 4mm; margin: 0 0 3mm 0; break-inside: avoid;
+}
+/* An explicit break the reader asked for. Nothing derives one. */
+.pagebreak { break-after: page; }
+tbody tr:nth-child(even) { background: #eef1f5; }
+
+body { counter-reset: section-number; }section.numbered h2::before { counter-increment: section-number; content: counter(section-number) '. '; color: #1a4a75; }
+@page { @bottom-right { content: "Стор. " counter(page) " / " counter(pages); font-family: "Report Sans"; font-size: 8.0pt; color: #7b8698; } @top-left { content: string(doctitle); font-family: "Report Sans"; font-size: 8.0pt; color: #7b8698; } } @page :first { @top-left { content: none; } }</style></head><body><div class="cover"><p class="eyebrow">Звіт</p><h1>Звіт</h1><div class="rule"></div><p class="meta">Сформовано: 05.08.2026</p></div><section class="numbered landscape"><h2>Широка таблиця</h2><div class="stats"><span>Рядків: 3</span> <span>Сума col_0: 3</span> <span>Середнє col_0: 1</span> <span>Сума col_1: 33</span> <span>Середнє col_1: 11</span> <span>Сума col_2: 63</span> <span>Середнє col_2: 21</span> <span>Сума col_3: 93</span> <span>Середнє col_3: 31</span></div><table><thead><tr><th>col_0</th><th>col_1</th><th>col_2</th><th>col_3</th><th>col_4</th><th>col_5</th><th>col_6</th><th>col_7</th><th>col_8</th></tr></thead><tbody><tr><td class="num">0</td><td class="num">10</td><td class="num">20</td><td class="num">30</td><td class="num">40</td><td class="num">50</td><td class="num">60</td><td class="num">70</td><td class="num">80</td></tr><tr><td class="num">1</td><td class="num">11</td><td class="num">21</td><td class="num">31</td><td class="num">41</td><td class="num">51</td><td class="num">61</td><td class="num">71</td><td class="num">81</td></tr><tr><td class="num">2</td><td class="num">12</td><td class="num">22</td><td class="num">32</td><td class="num">42</td><td class="num">52</td><td class="num">62</td><td class="num">72</td><td class="num">82</td></tr></tbody></table></section></body></html>

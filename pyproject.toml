@@ -1,0 +1,82 @@
+[project]
+name = "contextvault"
+version = "0.1.0"
+description = "Admin-curated NotebookLM-style RAG assistant with per-user access control."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "pgvector>=0.5.0",
+    "argon2-cffi>=25.1.0",
+    "cryptography>=44.0",
+    "pyjwt>=2.13.0",
+    "anthropic>=0.69",
+    "pypdf>=5.1",
+    "python-docx>=1.1",
+    "python-multipart>=0.0.18",
+    "google-genai>=1.0",
+    "openai>=1.0",
+    "pillow>=12.3.0",
+    "trafilatura>=2.1.0",
+    "pillow-heif>=1.5.0",
+    "aiomysql>=0.3.2",
+    "sqlglot>=30.13.0",
+    "matplotlib>=3.11.1",
+    "python-pptx>=1.0.2",
+    "weasyprint>=69",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.9",
+    "mypy>=1.14",
+    "pytest>=8.3",
+    "httpx>=0.28",
+    "pytest-asyncio>=1.4.0",
+    # Only for building PDF fixtures in tests/test_parsing.py; reports render
+    # through WeasyPrint.
+    "fpdf2>=2.8",
+    # Rasterises a rendered page so a test can see overflow. Extracted text shows
+    # a statistic that ran off the edge of the sheet exactly as if it had fitted.
+    "pypdfium2>=4.30",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/contextvault"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency markers are designed to be called in argument defaults.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Security", "fastapi.File"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+
+# pillow-heif ships no type stubs; treat its imports as untyped.
+[[tool.mypy.overrides]]
+module = ["pillow_heif.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"

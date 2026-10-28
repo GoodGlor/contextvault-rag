@@ -1,0 +1,248 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Manual trigger. A run can be dispatched on a branch ref, which lands in a
+  # different concurrency group than that branch's pull_request runs — the way
+  # out when a PR's group is held by a run that can no longer be cancelled.
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint, type-check, tests
+    runs-on: ubuntu-latest
+
+    # Postgres + pgvector, matching docker-compose, so the DB-backed tests and the
+    # vector-extension migration run for real.
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: contextvault
+          POSTGRES_PASSWORD: contextvault
+          POSTGRES_DB: contextvault
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U contextvault -d contextvault"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://contextvault:contextvault@localhost:5432/contextvault
+      # >=32 bytes keeps PyJWT from emitting insecure-key warnings; CI-only value.
+      SECRET_KEY: ci-secret-key-that-is-at-least-32-bytes-long
+      # A valid, throwaway Fernet key so the crypto suite runs against a
+      # set key rather than conftest's per-run default — mirrors a real deployment,
+      # where ENCRYPTION_KEY must be present. Must be a real Fernet key: conftest
+      # uses setdefault, so this value is kept as-is. CI-only; never a real secret.
+      ENCRYPTION_KEY: Ofuwhr2AIGm2DIXxckgYPgmf3SMusMQ9E0F_T8wXBEM=
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # WeasyPrint renders through Pango, and the report suite renders for real.
+      # The same single package the Dockerfile installs — it pulls pango, harfbuzz,
+      # freetype and fontconfig, and fontconfig-config depends on a Cyrillic-capable
+      # font, so the Ukrainian reports render in CI exactly as they do on the dyno.
+      # Without this the whole report suite dies at import; CI has never run against
+      # the WeasyPrint code, which landed after Actions was switched off.
+      - name: Install Pango (WeasyPrint's renderer)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpangoft2-1.0-0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Ruff lint
+        run: uv run ruff check src tests
+
+      - name: Ruff format check
+        run: uv run ruff format --check src tests
+
+      - name: Type-check (mypy)
+        run: uv run mypy
+
+      - name: Apply migrations
+        run: uv run alembic upgrade head
+
+      - name: Tests
+        run: uv run pytest
+
+  frontend:
+    name: Frontend lint, type-check, tests, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (eslint)
+        run: npm run lint
+
+      - name: Format check (prettier)
+        run: npm run format:check
+
+      - name: Type-check (tsc)
+        run: npm run typecheck
+
+      - name: Tests (vitest)
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  # The only guard that can see layout, a real browser and a real backend at
+  # once. It was NOT in CI until #214, and the cost of that was measured rather
+  # than guessed: the first run in five cards found six failing specs — five of
+  # them stubs left stale by #203 and #204 — while every one of those cards
+  # merged green. jsdom reports every box as zero, so nothing else can catch a
+  # control that overlaps its neighbour.
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: contextvault
+          POSTGRES_PASSWORD: contextvault
+          POSTGRES_DB: contextvault
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U contextvault -d contextvault"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://contextvault:contextvault@localhost:5432/contextvault
+      SECRET_KEY: ci-secret-key-that-is-at-least-32-bytes-long
+      ENCRYPTION_KEY: Ofuwhr2AIGm2DIXxckgYPgmf3SMusMQ9E0F_T8wXBEM=
+      # The credentials every spec signs in with, seeded by the shared script
+      # `dev.sh` also uses so the two cannot drift.
+      ADMIN_USER: admin
+      ADMIN_PASS: adminpass123
+      E2E_BASE_URL: http://localhost:5173
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # The backend imports the report renderer at startup, which loads
+      # WeasyPrint — without Pango the API does not boot at all.
+      - name: Install Pango (WeasyPrint's renderer)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpangoft2-1.0-0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install Python dependencies
+        run: uv sync
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Node dependencies
+        run: npm ci
+        working-directory: frontend
+
+      # One browser, because playwright.config.ts declares one project. Pulling
+      # all three would triple the download for coverage nothing asserts.
+      - name: Install Playwright's browser
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      - name: Apply migrations
+        run: uv run alembic upgrade head
+
+      - name: Seed the admin account
+        run: uv run python scripts/seed_admin.py
+
+      # `get_embedder` 409s without a verified Gemini key, and adding a web
+      # source depends on it — so on a clean database that POST fails and no row
+      # appears. Every developer machine has such a key, which is why the spec
+      # passed locally and only failed here. Placeholder; it never calls out.
+      - name: Seed a placeholder embeddings key
+        run: uv run python scripts/seed_ci_provider.py
+
+      - name: Start the backend
+        run: |
+          uv run uvicorn contextvault.main:app --port 8000 &
+          for _ in $(seq 1 60); do
+            curl -sf http://localhost:8000/health && break
+            sleep 2
+          done
+          curl -sf http://localhost:8000/health
+
+      # The dev server, not `vite preview`: only `server.proxy` is configured,
+      # so preview would serve the SPA with no /api proxy behind it and every
+      # spec would fail on its first request.
+      - name: Start the frontend
+        run: |
+          npm run dev -- --port 5173 &
+          for _ in $(seq 1 60); do
+            curl -sf -o /dev/null http://localhost:5173/api/health && break
+            sleep 2
+          done
+          # Proves the PROXY, not just the SPA: a 200 here means the browser can
+          # reach the API through the same origin the specs use.
+          curl -sf -o /dev/null -w "proxy %{http_code}\n" http://localhost:5173/api/health
+        working-directory: frontend
+
+      # The whole suite, never a filtered subset: a filtered run is what hid a
+      # broken invocation for weeks, per the handoff's own note.
+      - name: End-to-end tests
+        run: npx playwright test
+        working-directory: frontend
+
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          retention-days: 7

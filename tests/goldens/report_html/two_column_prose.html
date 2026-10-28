@@ -1,0 +1,88 @@
+<!doctype html><html lang="uk"><head><meta charset="utf-8"><title>Звіт</title><style>
+@page {
+    size: A4;
+    margin: 20.0mm 18.0mm;
+    background: #f7f7f5;
+}
+
+html {
+    font-family: "Report Serif";
+    font-size: 10.5pt;
+    line-height: 1.65;
+    color: #16181a;
+}
+body { margin: 0; }
+
+/* No `text-wrap: balance`: WeasyPrint does not implement it and logs an
+   "unknown property" warning on every single render.
+   `string-set` publishes the title to the running header — set on the element
+   rather than passed in twice, so the header cannot disagree with the cover. */
+h1 {
+    font-family: "Report Serif"; font-size: 26.0pt;
+    margin: 0 0 6mm 0; string-set: doctitle content();
+}
+h2 {
+    font-family: "Report Serif"; font-size: 15.0pt;
+    margin: 0 0 3mm 0; break-after: avoid;
+}
+section { margin-bottom: 9.0mm; }
+
+/* The cover is a page, not a heading: it ends with a break, so section one
+   always opens the second sheet however short the title is. */
+.cover { break-after: page; padding-top: 34mm; }
+.cover .eyebrow {
+    font-size: 8.4pt; letter-spacing: .12em; text-transform: uppercase;
+    color: #0a5f56; margin: 0;
+}
+.cover h1 { font-size: 35.1pt; margin: 3mm 0 0 0; }
+.cover .rule { height: 2pt; width: 34%; background: #0a5f56; margin: 6mm 0; }
+.cover .meta { color: #43474d; margin: 0; }
+
+/* A wide table gets the sheet turned rather than its headings broken mid-word.
+   The named page does nothing on its own — `section.landscape` is what claims
+   it, and a section only wears that class once it has enough columns to need it.
+   The break returns the next section to portrait: without it, whatever follows
+   is set on the turned sheet, and a paragraph at landscape measure is a 27 cm
+   line. Checked: it adds no trailing blank page when the wide section is last. */
+@page landscape { size: A4 landscape; }
+section.landscape { page: landscape; break-after: page; }
+p { margin: 0 0 3mm 0; orphans: 2; widows: 2; }
+.note { font-size: 8.4pt; color: #767a80; }
+.sources { font-size: 9.5pt; color: #43474d; }
+.stats { margin: 0 0 3mm 0; font-family: "Report Mono"; }
+.stats span { margin-right: 6mm; white-space: nowrap; }
+
+figure { margin: 0 0 4mm 0; break-inside: avoid; }
+figure img { width: 100%; height: auto; }
+
+table {
+    width: 100%; border-collapse: collapse; font-size: 8.4pt;
+    /* The default `auto` layout does not shrink a wide table: it lets the last
+       columns run off the page edge and cuts them there, with no warning. */
+    table-layout: fixed;
+}
+thead { display: table-header-group; }   /* the header repeats on every page */
+/* A row split across a page boundary loses half its cells, and the continuation
+   page opens with blanks that read as missing data. */
+tr { break-inside: avoid; }
+th, td {
+    padding: 1.4mm 1.6mm; border: .4pt solid #dedfdd;
+    text-align: left; overflow-wrap: anywhere;
+}
+th { background: #ececeb; font-weight: 700; color: #16181a; }
+td.num {
+    text-align: right; font-family: "Report Mono";
+    font-variant-numeric: tabular-nums;
+}
+/* A pulled-out conclusion. `break-inside: avoid` because a callout split across
+   a page boundary reads as two unrelated remarks. */
+.callout {
+    background: #ececeb; border-left: 3pt solid #0a5f56;
+    padding: 3mm 4mm; margin: 0 0 3mm 0; break-inside: avoid;
+}
+/* An explicit break the reader asked for. Nothing derives one. */
+.pagebreak { break-after: page; }
+
+section.text-section { columns: 2; column-gap: 7mm; }section.text-section h2 { column-span: all; }
+
+@page { @bottom-right { content: "Стор. " counter(page) " / " counter(pages); font-family: "Report Serif"; font-size: 8.4pt; color: #767a80; } @top-left { content: string(doctitle); font-family: "Report Serif"; font-size: 8.4pt; color: #767a80; } } @page :first { @top-left { content: none; } }</style></head><body><div class="cover"><p class="eyebrow">Звіт</p><h1>Звіт</h1><div class="rule"></div><p class="meta">Сформовано: 05.08.2026</p></div><section class="text-section"><h2>Ризики з документів</h2><p>Концентрація виторгу названа чинником ризику[1].</p><p class="sources">Джерела / Sources: [1] Apple Inc. · Form 10-K</p></section></body></html>

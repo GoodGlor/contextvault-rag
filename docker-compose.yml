@@ -1,0 +1,20 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: contextvault-db
+    environment:
+      POSTGRES_USER: contextvault
+      POSTGRES_PASSWORD: contextvault
+      POSTGRES_DB: contextvault
+    ports:
+      - "5432:5432"
+    volumes:
+      - contextvault_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contextvault -d contextvault"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  contextvault_pgdata:
