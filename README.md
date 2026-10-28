@@ -76,28 +76,28 @@ Most internal chatbots fail in the same three ways:
 ## How it works
 
 ```mermaid
-flowchart LR
-    subgraph Ingest["Ingest (admin)"]
-        D[PDF / DOCX / TXT<br/>web page / image<br/>Admin Note] --> P[Parse & chunk]
-        P --> E[Embed<br/>Gemini 1024-dim]
-        E --> V[(Postgres<br/>+ pgvector)]
+flowchart TB
+    subgraph Ingest["1. Ingest (admin)"]
+        direction LR
+        D["PDF, DOCX, TXT,<br/>web page, image,<br/>Admin Note"] --> P[Parse and chunk] --> E["Embed<br/>(Gemini, 1024-dim)"] --> V[("Postgres<br/>+ pgvector")]
     end
 
-    subgraph Ask["Ask (user)"]
-        Q[Question] --> R[Vector search<br/>filtered by the user's grants in SQL]
-        V --> R
-        R -->|relevant passages| L[Vault's LLM<br/>Anthropic / OpenAI / Gemini /<br/>OpenRouter / self-hosted]
-        L --> A[Answer with n citations]
-        R -->|nothing relevant| G[“Not in this vault”<br/>+ knowledge gap logged]
+    subgraph Ask["2. Ask (user)"]
+        direction LR
+        Q[Question] --> R["Vector search,<br/>filtered by the user's<br/>grants in SQL"]
+        R -->|relevant passages| L["Vault's LLM"] --> A["Answer with<br/>[n] citations"]
+        R -->|nothing relevant| G["'Not in this vault'<br/>+ knowledge gap"]
     end
 
-    subgraph Report["Report"]
-        RQ[Report request] --> PL[LLM plans sections] --> RV[User reviews plan]
-        RV --> SQL[Guardrailed NL→SQL<br/>read-only DB]
-        RV --> RAG[Cited RAG<br/>documents]
-        SQL --> OUT[PDF / PPTX]
-        RAG --> OUT
+    subgraph Report["3. Report"]
+        direction LR
+        RQ[Report request] --> PL[LLM plans sections] --> RV[User reviews the plan]
+        RV --> SQL["Guardrailed NL→SQL<br/>(read-only DB)"] --> OUT[PDF / PPTX]
+        RV --> RAG["Cited RAG<br/>(documents)"] --> OUT
     end
+
+    Ingest --> Ask
+    Ingest --> Report
 ```
 
 A deeper walkthrough of every subsystem and endpoint is in
